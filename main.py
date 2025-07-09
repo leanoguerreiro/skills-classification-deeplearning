@@ -1,3 +1,5 @@
+from collections import Counter
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -445,6 +447,13 @@ def main():
     dataset, num_classes, class_names = load_data(config.DATA_PATH)
     print(f"Dataset loaded with {len(dataset)} images and {num_classes} classes.")
     print(f"Class names: {class_names}")
+    
+    class_counts = Counter(dataset.targets)
+    print("\n--- Class Distribution ---")
+    for class_idx, count in class_counts.items():
+        print(f" Class'{class_names[class_idx]}: {count} images")
+    print("--------------------------")
+    
     print(f"Using device: {config.DEVICE}")
 
     accuracies = run_cross_validation(config, dataset, num_classes, class_names)
