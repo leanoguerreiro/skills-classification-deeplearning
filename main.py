@@ -166,6 +166,7 @@ def train_and_validate(model, train_loader, val_loader, config, fold_num):
         running_loss = 0.0
 
         print(f"\nEpoch {epoch + 1}/{config.EPOCHS} [Train]")
+        send_telegram_message(f"Epoch {epoch + 1}/{config.EPOCHS} [Train]")
         for i, (images, labels) in enumerate(train_loader):
             images, labels = images.to(config.DEVICE), labels.to(config.DEVICE)
             optimizer.zero_grad()
@@ -185,6 +186,7 @@ def train_and_validate(model, train_loader, val_loader, config, fold_num):
         val_loss, correct, total = 0.0, 0, 0
 
         print(f"Epoch {epoch + 1}/{config.EPOCHS} [Validation]")
+        send_telegram_message(f"Epoch {epoch + 1}/{config.EPOCHS} [Validation]")
         with torch.no_grad():
             for i, (images, labels) in enumerate(val_loader):
                 images, labels = images.to(config.DEVICE), labels.to(config.DEVICE)
@@ -224,6 +226,7 @@ def train_and_validate(model, train_loader, val_loader, config, fold_num):
     if best_model_state is not None and config.SAVE_BEST_MODEL:
         model.load_state_dict(best_model_state)
         print(f"Modelo carregado com a melhor acurácia de validação ({best_val_acc:.2f}%) para o Fold {fold_num}.")
+        
 
     print('-' * 20, f"Fold {fold_num} training finished", '-' * 20)
     return best_val_acc
@@ -261,7 +264,8 @@ def generate_report(model, data_loader, device, model_name, class_names, fold_nu
         f.write(f"--- Classification Report (Fold {fold_num}) ---\n")
         f.write(report_str)
     print(f"Classification report saved to '{os.path.abspath(report_filename)}'")
-
+    send_telegram_message(f"Classification report saved to '{os.path.abspath(report_filename)}'")
+    
     print(f"\n--- Confusion Matrix (Fold {fold_num} {model_name}) ---")
     cm = confusion_matrix(y_true, y_pred)
     df_cm = pd.DataFrame(cm, index=class_names, columns=class_names)
@@ -277,14 +281,14 @@ def generate_report(model, data_loader, device, model_name, class_names, fold_nu
     plt.savefig(report_path)
     print(f"Confusion matrix saved as '{os.path.abspath(report_path)}'")
     plt.close()  # Fechar a figura para evitar sobrecarga de memória
-
+    send_telegram_message(f"Confusion matrix saved as '{os.path.abspath(report_path)}'")
 
 def run_cross_validation(config, dataset, num_classes, class_names):
     kf = StratifiedKFold(n_splits=config.N_SPLITS)
     fold_accuracies = []
 
     print(f'\n- - - Starting Cross-Validation ({config.MODEL_NAME}) - - -')
-
+    send_telegram_message(f"Starting Cross-Validation ({config.MODEL_NAME}) - - ")
     # --- GERAR TIMESTAMP AQUI ---
     # Isso criará um timestamp único para esta execução de cross-validation
     current_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -299,7 +303,7 @@ def run_cross_validation(config, dataset, num_classes, class_names):
     
     for fold, (train_idx, val_idx) in enumerate(kf.split(np.arange(len(dataset)), targets)):
         fold_num = fold + 1
-        send_telegram_message(f"\n{'=' * 25} Fold {fold_num}/{config.N_SPLITS} {'=' * 25}")
+        send_telegram_message(f"\n{'=' * 5}Iniciando Fold {fold_num}/{config.N_SPLITS} {'=' * 5}")
         print(f"\n{'=' * 25} Fold {fold_num}/{config.N_SPLITS} {'=' * 25}")
 
         # Criar Subsets
