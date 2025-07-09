@@ -209,10 +209,14 @@ def train_and_validate(model, train_loader, val_loader, config, fold_num):
     return best_val_acc
 
 
-def generate_report(model, data_loader, device, model_name, class_names, fold_num):
+def generate_report(model, data_loader, device, model_name, class_names, fold_num, timestamp):
     model.eval()
     y_true = []
     y_pred = []
+    
+    base_reports_dir = 'reports'
+    classification_report_path = os.path.join(base_reports_dir, 'classification')
+    confusion_report_path = os.path.join(base_reports_dir, 'confusion_matrix')
 
     with torch.no_grad():
         for images, labels in data_loader:
@@ -225,8 +229,18 @@ def generate_report(model, data_loader, device, model_name, class_names, fold_nu
             y_true.extend(labels.cpu().numpy())
             y_pred.extend(predicted.cpu().numpy())
 
+    # --- Classification Report ---
+    report_str = classification_report(y_true, y_pred, target_names=class_names, digits=4)
     print(f"\n--- Classification Report (Fold {fold_num}) ---")
-    print(classification_report(y_true, y_pred, target_names=class_names, digits=4))
+    print(report_str)
+
+    # Garantir que o diretório 'reports/classification/' exista
+    os.makedirs(classification_report_path, exist_ok=True)
+    report_filename = os.path.join(classification_report_path, f'{timestamp}_{model_name}_classification_report_fold_{fold_num}.txt')
+    with open(report_filename, 'w') as f:
+        f.write(f"--- Classification Report (Fold {fold_num}) ---\n")
+        f.write(report_str)
+    print(f"Classification report saved to '{os.path.abspath(report_filename)}'")
 
     print(f"\n--- Confusion Matrix (Fold {fold_num} {model_name}) ---")
     cm = confusion_matrix(y_true, y_pred)
@@ -236,11 +250,10 @@ def generate_report(model, data_loader, device, model_name, class_names, fold_nu
     sns.heatmap(df_cm, annot=True, fmt='g', cmap='Blues')
     plt.xlabel('Predicted Class')
     plt.ylabel('True Class')
-    plt.title(f'Confusion Matrix (Fold {fold_num})')
-    # Garantir que o diretório 'reports' exista
-    reports_dir = 'reports'
-    os.makedirs(reports_dir, exist_ok=True)
-    report_path = os.path.join(reports_dir, f'confusion_matrix_fold_{fold_num}_{model_name}.png')
+    plt.title(f'Confusion Matrix (Fold {fold_num} {model_name})')
+    # Garantir que o diretório 'reports/confusion_matrix/' exista
+    os.makedirs(confusion_report_path, exist_ok=True)
+    report_path = os.path.join(confusion_report_path, f'{timestamp}_{model_name}_confusion_matrix_fold_{fold_num}.png')
     plt.savefig(report_path)
     print(f"Confusion matrix saved as '{os.path.abspath(report_path)}'")
     plt.close()  # Fechar a figura para evitar sobrecarga de memória
@@ -252,6 +265,12 @@ def run_cross_validation(config, dataset, num_classes, class_names):
 
     print(f'\n- - - Starting Cross-Validation ({config.MODEL_NAME}) - - -')
 
+    # --- GERAR TIMESTAMP AQUI ---
+    # Isso criará um timestamp único para esta execução de cross-validation
+    current_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    print(f"Timestamp da execução: {current_timestamp}")
+    # --- FIM DO TIMESTAMP ---
+    
     # `dataset.targets` funciona bem com ImageFolder
     targets = dataset.targets
 
@@ -296,7 +315,7 @@ def run_cross_validation(config, dataset, num_classes, class_names):
         print(f"Best Fold Accuracy [{fold_num}]: {best_fold_acc:.2f}%")
 
         print(f"\nGenerating report for Fold {fold_num} validation set...")
-        generate_report(model, val_loader, config.DEVICE, config.MODEL_NAME, class_names, fold_num)
+        generate_report(model, val_loader, config.DEVICE, config.MODEL_NAME, class_names, fold_num, current_timestamp)
 
     return fold_accuracies
 
