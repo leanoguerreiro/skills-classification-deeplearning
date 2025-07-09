@@ -33,7 +33,7 @@ experimentos = [
      'save_best': True, 'no_data_augmentation': False,
      'apply_gaussian_noise_train': True, 'gaussian_noise_std_train': 0.05, # Aplicar ruído no treino com std 0.05
      'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0},
-    {'model_name': 'mixer_s16_224', 'batch_size': 32, 'learning_rate': 0.0001, 'patience': 10,
+    {'model_name': 'mixer_b16_224', 'batch_size': 32, 'learning_rate': 0.0001, 'patience': 10,
      'save_best': True, 'no_data_augmentation': False,
      'apply_gaussian_noise_train': True, 'gaussian_noise_std_train': 0.05, # Aplicar ruído no treino com std 0.05
      'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0},
