@@ -15,8 +15,28 @@ from sklearn.metrics import classification_report, confusion_matrix
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import requests
+import time
+
+TELEGRAM_BOT_TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
+TELEGRAM_CHAT_ID = os.environ['TELEGRAM_CHAT_ID']
 
 warnings.filterwarnings("ignore")
+
+def send_telegram_message(message):
+    """Envia uma mensagem para o Telegram."""
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        'chat_id': TELEGRAM_CHAT_ID,
+        'text': message,
+        'parse_mode': 'HTML' # Permite formatação em HTML (negrito, itálico, etc.)
+    }
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status() # Lança uma exceção para códigos de status HTTP de erro
+        # print(f"Notificação Telegram enviada: {message}") # Opcional: para depuração
+    except requests.exceptions.RequestException as e:
+        print(f"Erro ao enviar notificação Telegram: {e}")
 
 
 # --- 1. CLASSE DE CONFIGURAÇÃO ---
@@ -273,9 +293,13 @@ def run_cross_validation(config, dataset, num_classes, class_names):
     
     # `dataset.targets` funciona bem com ImageFolder
     targets = dataset.targets
-
+    
+    start_time_fold = time.time()
+    
+    
     for fold, (train_idx, val_idx) in enumerate(kf.split(np.arange(len(dataset)), targets)):
         fold_num = fold + 1
+        send_telegram_message(f"\n{'=' * 25} Fold {fold_num}/{config.N_SPLITS} {'=' * 25}")
         print(f"\n{'=' * 25} Fold {fold_num}/{config.N_SPLITS} {'=' * 25}")
 
         # Criar Subsets
@@ -316,7 +340,14 @@ def run_cross_validation(config, dataset, num_classes, class_names):
 
         print(f"\nGenerating report for Fold {fold_num} validation set...")
         generate_report(model, val_loader, config.DEVICE, config.MODEL_NAME, class_names, fold_num, current_timestamp)
-
+        end_time_fold = time.time()
+        duration_fold = end_time_fold - start_time_fold
+        duration_fold_formatted = time.strftime("%H:%M:%S", time.gmtime(duration_fold))
+        send_telegram_message(
+            f"📊 Fold `{fold_num}` finalizado\n"
+            f"Duração: `{duration_fold_formatted}`\n"
+            f"Progresso Total: `{fold + 1}/{config.N_SPLITS}`\n"
+        )
     return fold_accuracies
 
 
