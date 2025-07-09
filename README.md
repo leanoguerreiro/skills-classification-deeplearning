@@ -213,4 +213,4 @@ Feel free to fork this repository, open issues, and submit pull requests.
 
 ## 📄 License
 
-[MIT](/License)
+[MIT](LICENSE)
