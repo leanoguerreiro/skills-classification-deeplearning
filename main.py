@@ -151,7 +151,10 @@ class TransformedSubset(Dataset):
 
 # --- 3. FUNÇÕES PRINCIPAIS DE TREINAMENTO E VALIDAÇÃO (ajustadas) ---
 
-def train_and_validate(model, train_loader, val_loader, config, fold_num):
+def train_and_validate(model, train_loader, val_loader, config, fold_num, current_timestamp):
+    model_filename = f"best_model_{config.MODEL_NAME}_fold_{fold_num}_{current_timestamp}.pth"
+    os.makedirs('models', exist_ok=True) # Garante que o diretório 'models' existe
+    model_save_path = os.path.join('models', model_filename)
     model.to(config.DEVICE)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=config.LEARNING_RATE)
@@ -227,6 +230,7 @@ def train_and_validate(model, train_loader, val_loader, config, fold_num):
 
     if best_model_state is not None and config.SAVE_BEST_MODEL:
         model.load_state_dict(best_model_state)
+        torch.save(model.state_dict(), model_save_path)
         print(f"Modelo carregado com a melhor acurácia de validação ({best_val_acc:.2f}%) para o Fold {fold_num}.")
         
 
@@ -340,7 +344,7 @@ def run_cross_validation(config, dataset, num_classes, class_names):
 
         model = create_model(config.MODEL_NAME, pretrained=True, num_classes=num_classes)
 
-        best_fold_acc = train_and_validate(model, train_loader, val_loader, config, fold_num)
+        best_fold_acc = train_and_validate(model, train_loader, val_loader, config, fold_num, current_timestamp)
         fold_accuracies.append(best_fold_acc)
         print(f"Best Fold Accuracy [{fold_num}]: {best_fold_acc:.2f}%")
 
