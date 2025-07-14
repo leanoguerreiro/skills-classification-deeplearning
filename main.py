@@ -404,6 +404,8 @@ def main():
                         help="Number of epochs to train.")
     parser.add_argument('--learning_rate', type=float, default=0.0001,
                         help="Learning rate.")
+    parser.add_argument('--img_size', type=int, nargs=2, default=[224, 224],
+                        help="Image size as two integers (height width).")
 
     # --- Argumentos para Data Augmentation no TREINO ---
     parser.add_argument('--no_data_augmentation', action='store_false', dest='apply_data_augmentation',
@@ -434,6 +436,7 @@ def main():
     config.EPOCHS = args.epochs
     config.LEARNING_RATE = args.learning_rate
     config.NUM_WORKERS = args.num_workers
+    config.IMG_SIZE = args.img_size
 
     # Atribui argumentos de aumento de dados e ruído
     config.APPLY_DATA_AUGMENTATION = args.apply_data_augmentation
