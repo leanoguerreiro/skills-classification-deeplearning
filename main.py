@@ -13,7 +13,7 @@ from datetime import datetime
 import warnings
 import os
 import argparse
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc, precision_recall_curve
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -242,10 +242,13 @@ def generate_report(model, data_loader, device, model_name, class_names, fold_nu
     model.eval()
     y_true = []
     y_pred = []
-    
+    y_scores = [] # Store probabilities for ROC/PRC
+
     base_reports_dir = 'reports'
     classification_report_path = os.path.join(base_reports_dir, 'classification')
     confusion_report_path = os.path.join(base_reports_dir, 'confusion_matrix')
+    roc_curve_path = os.path.join(base_reports_dir, 'roc_curves')
+    pr_curve_path = os.path.join(base_reports_dir, 'precision_recall_curves')
 
     with torch.no_grad():
         for images, labels in data_loader:
@@ -253,10 +256,12 @@ def generate_report(model, data_loader, device, model_name, class_names, fold_nu
             labels = labels.to(device)
 
             outputs = model(images)
+            probabilities = torch.softmax(outputs, dim=1) # Get probabilities
             _, predicted = torch.max(outputs, 1)
 
             y_true.extend(labels.cpu().numpy())
             y_pred.extend(predicted.cpu().numpy())
+            y_scores.extend(probabilities.cpu().numpy())
 
     # --- Classification Report ---
     report_str = classification_report(y_true, y_pred, target_names=class_names, digits=4)
@@ -271,7 +276,7 @@ def generate_report(model, data_loader, device, model_name, class_names, fold_nu
         f.write(report_str)
     print(f"Classification report saved to '{os.path.abspath(report_filename)}'")
     send_telegram_message(f"Classification report saved to '{os.path.abspath(report_filename)}'")
-    
+
     print(f"\n--- Confusion Matrix (Fold {fold_num} {model_name}) ---")
     cm = confusion_matrix(y_true, y_pred)
     df_cm = pd.DataFrame(cm, index=class_names, columns=class_names)
@@ -289,6 +294,49 @@ def generate_report(model, data_loader, device, model_name, class_names, fold_nu
     plt.close()  # Fechar a figura para evitar sobrecarga de memória
     send_telegram_message(f"Confusion matrix saved as '{os.path.abspath(report_path)}'")
 
+    # --- ROC Curve and AUC --- 
+    os.makedirs(roc_curve_path, exist_ok=True)
+
+    y_scores_np = np.array(y_scores)
+    y_true_np = np.array(y_true)
+
+    plt.figure(figsize=(10, 8))
+    for i, class_name in enumerate(class_names):
+        fpr, tpr, _ = roc_curve(y_true_np == i, y_scores_np[:, i])
+        roc_auc = auc(fpr, tpr)
+        plt.plot(fpr, tpr, label=f'ROC curve of class {class_name} (area = {roc_auc:.2f})')
+
+    plt.plot([0, 1], [0, 1], 'k--', label='No Skill')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(f'Receiver Operating Characteristic (ROC) Curve - Fold {fold_num} {model_name}')
+    plt.legend(loc='lower right')
+    roc_path = os.path.join(roc_curve_path, f'{timestamp}_{model_name}_roc_curve_fold_{fold_num}.png')
+    plt.savefig(roc_path)
+    print(f"ROC curve saved as '{os.path.abspath(roc_path)}'")
+    plt.close()
+    send_telegram_message(f"ROC curve saved as '{os.path.abspath(roc_path)}'")
+
+    # --- Precision-Recall Curve ---
+    os.makedirs(pr_curve_path, exist_ok=True)
+
+    plt.figure(figsize=(10, 8))
+    for i, class_name in enumerate(class_names):
+        precision, recall, _ = precision_recall_curve(y_true_np == i, y_scores_np[:, i])
+        plt.plot(recall, precision, label=f'PR curve of class {class_name}')
+
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title(f'Precision-Recall Curve - Fold {fold_num} {model_name}')
+    plt.legend(loc='lower left')
+    pr_path = os.path.join(pr_curve_path, f'{timestamp}_{model_name}_precision_recall_curve_fold_{fold_num}.png')
+    plt.savefig(pr_path)
+    print(f"Precision-Recall curve saved as '{os.path.abspath(pr_path)}'")
+    plt.close()
+    send_telegram_message(f"Precision-Recall curve saved as '{os.path.abspath(pr_path)}'")
+
 def run_cross_validation(config, dataset, num_classes, class_names):
     kf = StratifiedKFold(n_splits=config.N_SPLITS)
     fold_accuracies = []
@@ -300,13 +348,13 @@ def run_cross_validation(config, dataset, num_classes, class_names):
     current_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     print(f"Timestamp da execução: {current_timestamp}")
     # --- FIM DO TIMESTAMP ---
-    
+
     # `dataset.targets` funciona bem com ImageFolder
     targets = dataset.targets
-    
+
     start_time_fold = time.time()
-    
-    
+
+
     for fold, (train_idx, val_idx) in enumerate(kf.split(np.arange(len(dataset)), targets)):
         fold_num = fold + 1
         send_telegram_message(f"\n{'=' * 5}Iniciando Fold {fold_num}/{config.N_SPLITS} {'=' * 5}")
@@ -359,7 +407,6 @@ def run_cross_validation(config, dataset, num_classes, class_names):
             f"Progresso Total: `{fold + 1}/{config.N_SPLITS}`\n"
         )
     return fold_accuracies
-
 
 def log_final_results(config, accuracies):
     mean_acc = np.mean(accuracies)
