@@ -33,23 +33,69 @@ experimentos = [
      'save_best': True, 'no_data_augmentation': False,
      'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
      'apply_gaussian_noise_val_test': True, 'test_noise_std_val': 0.07}, # Aplicar ruído na validação com std 0.07
-
-    {'model_name': 'mixer_b16_224', 'batch_size': 32, 'learning_rate': 0.0001, 'patience': 10,
+    
+    
+    
+    {'model_name': 'efficientformer_l3', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 20, 'patience': 10,
      'save_best': True, 'no_data_augmentation': False,
      'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
      'apply_gaussian_noise_val_test': True, 'test_noise_std_val': 0.07}, # Aplicar ruído na validação com std 0.07
-    {'model_name': 'efficientnet_b0', 'batch_size': 32, 'learning_rate': 0.0001, 'patience': 10,
+    
+    
+    
+    {'model_name': 'regnety_040', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 20, 'patience': 10,
      'save_best': True, 'no_data_augmentation': False,
      'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
      'apply_gaussian_noise_val_test': True, 'test_noise_std_val': 0.07}, # Aplicar ruído na validação com std 0.07
-    {'model_name': 'mobilevit_s', 'batch_size': 32, 'learning_rate': 0.0001, 'patience': 10,
+    
+    
+    
+    {'model_name': 'mobilevitv2_200', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 20, 'patience': 10,
      'save_best': True, 'no_data_augmentation': False,
      'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
      'apply_gaussian_noise_val_test': True, 'test_noise_std_val': 0.07}, # Aplicar ruído na validação com std 0.07
-    {'model_name': 'densenet121', 'batch_size': 32, 'learning_rate': 0.0001, 'patience': 10,
+    
+    
+    
+    {'model_name': 'vit_small_patch16_224', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 25, 'patience': 12, # Aumentar épocas e paciência
      'save_best': True, 'no_data_augmentation': False,
      'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
-     'apply_gaussian_noise_val_test': True, 'test_noise_std_val': 0.07} # Aplicar ruído na validação com std 0.07
+     'apply_gaussian_noise_val_test': True, 'test_noise_std_val': 0.07}, # Aplicar ruído na validação com std 0.07
+    
+    
+    
+    {'model_name': 'swin_s3_small_224', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 25, 'patience': 12, # Aumentar épocas e paciência
+     'save_best': True, 'no_data_augmentation': False,
+     'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
+     'apply_gaussian_noise_val_test': True, 'test_noise_std_val': 0.07}, # Aplicar ruído na validação com std 0.07 
+    
+    
+    
+    {'model_name': 'densenetblur121d', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 20, 'patience': 10,
+     'save_best': True, 'no_data_augmentation': False,
+     'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
+     'apply_gaussian_noise_val_test': True, 'test_noise_std_val': 0.07}, # Aplicar ruído na validação com std 0.07
+    
+    
+    
+    {'model_name': 'deit3_small_patch16_224', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 25, 'patience': 12, # Aumentar épocas e paciência
+     'save_best': True, 'no_data_augmentation': False,
+     'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
+     'apply_gaussian_noise_val_test': True, 'test_noise_std_val': 0.07}, # Aplicar ruído na validação com std 0.07
+    
+    
+    
+    {'model_name': 'vgg19_bn', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 20, 'patience': 10,
+     'save_best': True, 'no_data_augmentation': False,
+     'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
+     'apply_gaussian_noise_val_test': True, 'test_noise_std_val': 0.07}, # Aplicar ruído na validação com std 0.07
+    
+    
+    
+    {'model_name': 'vitamin_small_224', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 25, 'patience': 12, # Aumentar épocas e paciência
+     'save_best': True, 'no_data_augmentation': False,
+     'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
+     'apply_gaussian_noise_val_test': True, 'test_noise_std_val': 0.07}, # Aplicar ruído na validação com std 0.07
 ]
 
 start_time_global = time.time()
@@ -68,6 +114,8 @@ for i, experimento in enumerate(experimentos):
     patience = experimento.get('patience', 5)
     save_best = experimento.get('save_best', True)
     disable_data_augmentation_flag = experimento.get('no_data_augmentation', False)
+    img_size = experimento.get('img_size', (224, 224))
+    epochs = experimento.get('epochs', 25)
 
     apply_gaussian_noise_train = experimento.get('apply_gaussian_noise_train', False)
     gaussian_noise_std_train = experimento.get('gaussian_noise_std_train', 0.0)
@@ -81,6 +129,8 @@ for i, experimento in enumerate(experimentos):
         '--batch_size', str(batch_size),
         '--learning_rate', str(learning_rate),
         '--patience', str(patience),
+        '--img_size', str(img_size[0]),str(img_size[1]),
+        '--epochs', str(epochs),
     ]
 
     if save_best:
@@ -104,6 +154,7 @@ for i, experimento in enumerate(experimentos):
     print(f"  Modelo: {model_name}")
     print(f"  Batch Size: {batch_size}")
     print(f"  LR: {learning_rate}")
+    print(f"  Epochs: {epochs}")
     print(f"  Paciência ES: {patience}")
     print(f"  Salvar Melhor: {save_best}")
     print(f"  Aumento de Dados Desabilitado: {disable_data_augmentation_flag}")
@@ -117,6 +168,7 @@ for i, experimento in enumerate(experimentos):
         f"Modelo: `{model_name}`\n"
         f"Batch Size: `{batch_size}`\n"
         f"LR: `{learning_rate}`\n"
+        f"Epochs: `{epochs}`\n"
         f"Aumento Dados: `{'Não' if disable_data_augmentation_flag else 'Sim'}`\n"
         f"Ruído Treino: `{'Sim' if apply_gaussian_noise_train else 'Não'}` (std={gaussian_noise_std_train})\n"
         f"Ruído Val: `{'Sim' if apply_gaussian_noise_val_test else 'Não'}` (std={test_noise_std_val})"

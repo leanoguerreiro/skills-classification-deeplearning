@@ -30,26 +30,95 @@ main_script_path = 'main.py'  # Assumindo que main.py está na mesma pasta
 # Adicione os novos parâmetros 'patience' e 'save_best' conforme sua necessidade.
 experimentos = [
     # Experimento 1: Sem ruído
-    {'model_name': 'convnext_base', 'batch_size': 32, 'learning_rate': 0.0001, 'patience': 10,
+    # ConvNeXt Base
+    # Conhecido por ser robusto. O LR padrão (0.0001) é um bom início.
+    # IMG_SIZE 224x224 é o padrão para a maioria dos modelos pré-treinados em ImageNet.
+    {'model_name': 'convnext_base', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 20, 'patience': 10,
+     'save_best': True, 'no_data_augmentation': False, # Manter aumento de dados ativo
+     'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
+     'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0,
+     'img_size': (224, 224)},
+
+    # EfficientFormer L3
+    # Modelos EfficientFormer são projetados para eficiência. O LR padrão deve ser OK.
+    # O tamanho da imagem de 224x224 é comum.
+    {'model_name': 'efficientformer_l3', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 20, 'patience': 10,
      'save_best': True, 'no_data_augmentation': False,
      'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
-     'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0},
-    {'model_name': 'mixer_b16_224', 'batch_size': 32, 'learning_rate': 0.0001, 'patience': 10,
+     'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0,
+     'img_size': (224, 224)},
+
+    # RegNetY_040
+    # Arquitetura tipo CNN. LR 0.0001 é um bom ponto de partida.
+    # Tamanho 224x224 é padrão.
+    {'model_name': 'regnety_040', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 20, 'patience': 10,
      'save_best': True, 'no_data_augmentation': False,
      'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
-     'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0},
-    {'model_name': 'efficientnet_b0', 'batch_size': 32, 'learning_rate': 0.0001, 'patience': 10,
+     'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0,
+     'img_size': (224, 224)},
+
+    # MobileViTv2_200
+    # Desenvolvido para dispositivos móveis, combina ViT com MobileNet.
+    # LR padrão é um bom começo. 224x224 é o tamanho mais comum.
+    {'model_name': 'mobilevitv2_200', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 20, 'patience': 10,
      'save_best': True, 'no_data_augmentation': False,
      'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
-     'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0},
-    {'model_name': 'mobilevit_s', 'batch_size': 32, 'learning_rate': 0.0001, 'patience': 10,
+     'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0,
+     'img_size': (224, 224)},
+
+    # ViT Small Patch16 224
+    # Vision Transformers podem ser um pouco mais sensíveis ao LR.
+    # 0.0001 geralmente funciona bem para fine-tuning. 224x224 é o tamanho de pré-treinamento.
+    {'model_name': 'vit_small_patch16_224', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 25, 'patience': 12, # Aumentar épocas e paciência
      'save_best': True, 'no_data_augmentation': False,
      'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
-     'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0},
-    {'model_name': 'densenet121', 'batch_size': 32, 'learning_rate': 0.0001, 'patience': 10,
+     'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0,
+     'img_size': (224, 224)},
+
+    # Swin S3 Small 224
+    # Swin Transformers são poderosos. LR 0.0001 é adequado.
+    # 224x224 é o tamanho de pré-treinamento mais comum.
+    {'model_name': 'swin_s3_small_224', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 25, 'patience': 12, # Aumentar épocas e paciência
      'save_best': True, 'no_data_augmentation': False,
      'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
-     'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0}
+     'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0,
+     'img_size': (224, 224)},
+
+    # DenseNetBlur121d
+    # Variação da DenseNet. Um LR de 0.0001 é um bom começo.
+    # 224x224 é o tamanho padrão.
+    {'model_name': 'densenetblur121d', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 20, 'patience': 10,
+     'save_best': True, 'no_data_augmentation': False,
+     'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
+     'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0,
+     'img_size': (224, 224)},
+
+    # DeiT3 Small Patch16 224
+    # Outro modelo baseado em Transformer, semelhante ao ViT.
+    # LR 0.0001 deve ser bom. 224x224 é o tamanho de pré-treinamento.
+    {'model_name': 'deit3_small_patch16_224', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 25, 'patience': 12, # Aumentar épocas e paciência
+     'save_best': True, 'no_data_augmentation': False,
+     'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
+     'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0,
+     'img_size': (224, 224)},
+
+    # VGG19_bn
+    # Modelos VGG são mais antigos, mas ainda robustos.
+    # Um LR de 0.0001 geralmente funciona. 224x224 é o padrão.
+    {'model_name': 'vgg19_bn', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 20, 'patience': 10,
+     'save_best': True, 'no_data_augmentation': False,
+     'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
+     'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0,
+     'img_size': (224, 224)},
+
+    # Vitamin Small 224
+    # Mais um modelo Transformer.
+    # Mantenha o LR 0.0001 e 224x224.
+    {'model_name': 'vitamin_small_224', 'batch_size': 32, 'learning_rate': 0.0001, 'epochs': 25, 'patience': 12, # Aumentar épocas e paciência
+     'save_best': True, 'no_data_augmentation': False,
+     'apply_gaussian_noise_train': False, 'gaussian_noise_std_train': 0.0,
+     'apply_gaussian_noise_val_test': False, 'test_noise_std_val': 0.0,
+     'img_size': (224, 224)}
 ]
 
 start_time_global = time.time()
@@ -68,6 +137,8 @@ for i, experimento in enumerate(experimentos):
     patience = experimento.get('patience', 5)
     save_best = experimento.get('save_best', True)
     disable_data_augmentation_flag = experimento.get('no_data_augmentation', False)
+    img_size = experimento.get('img_size', (224, 224))
+    epochs = experimento.get('epochs', 25)
 
     apply_gaussian_noise_train = experimento.get('apply_gaussian_noise_train', False)
     gaussian_noise_std_train = experimento.get('gaussian_noise_std_train', 0.0)
@@ -81,6 +152,8 @@ for i, experimento in enumerate(experimentos):
         '--batch_size', str(batch_size),
         '--learning_rate', str(learning_rate),
         '--patience', str(patience),
+        '--img_size', str(img_size[0]),str(img_size[1]),
+        '--epochs', str(epochs),
     ]
 
     if save_best:
@@ -104,6 +177,7 @@ for i, experimento in enumerate(experimentos):
     print(f"  Modelo: {model_name}")
     print(f"  Batch Size: {batch_size}")
     print(f"  LR: {learning_rate}")
+    print(f"  Epochs: {epochs}")
     print(f"  Paciência ES: {patience}")
     print(f"  Salvar Melhor: {save_best}")
     print(f"  Aumento de Dados Desabilitado: {disable_data_augmentation_flag}")
@@ -117,6 +191,7 @@ for i, experimento in enumerate(experimentos):
         f"Modelo: `{model_name}`\n"
         f"Batch Size: `{batch_size}`\n"
         f"LR: `{learning_rate}`\n"
+        f"Epochs: `{epochs}`\n"
         f"Aumento Dados: `{'Não' if disable_data_augmentation_flag else 'Sim'}`\n"
         f"Ruído Treino: `{'Sim' if apply_gaussian_noise_train else 'Não'}` (std={gaussian_noise_std_train})\n"
         f"Ruído Val: `{'Sim' if apply_gaussian_noise_val_test else 'Não'}` (std={test_noise_std_val})"
