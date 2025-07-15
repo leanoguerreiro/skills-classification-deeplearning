@@ -13,7 +13,8 @@ from datetime import datetime
 import warnings
 import os
 import argparse
-from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc, precision_recall_curve
+from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc, precision_recall_curve, precision_recall_fscore_support
+from sklearn.calibration import calibration_curve # NEW: For Calibration Plot
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -98,7 +99,7 @@ class GaussianNoise:
 def get_transforms(config, is_train):
     base_transforms = [
         transforms.Resize(config.IMG_SIZE),
-        #transforms.ToTensor(),
+        #transforms.ToTensor(), # ToTensor já é aplicado no load_data agora
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])  # Normalização para [-1, 1]
     ]
 
@@ -160,7 +161,10 @@ def train_and_validate(model, train_loader, val_loader, config, fold_num, curren
     optimizer = optim.AdamW(model.parameters(), lr=config.LEARNING_RATE)
     scaler = GradScaler()
 
-    epoch_accuracies = []
+    # NEW: Lists to store metrics for learning curves
+    train_losses_history = []
+    val_losses_history = []
+    val_accuracies_history = []
 
     best_val_acc = -1.0
     epochs_no_improve = 0
@@ -186,6 +190,7 @@ def train_and_validate(model, train_loader, val_loader, config, fold_num, curren
                 print(f"  Batch {i + 1}/{len(train_loader)} - Loss: {loss.item():.4f}")
 
         avg_train_loss = running_loss / len(train_loader)
+        train_losses_history.append(avg_train_loss) # NEW: Store train loss
 
         model.eval()
         val_loss, correct, total = 0.0, 0, 0
@@ -207,7 +212,8 @@ def train_and_validate(model, train_loader, val_loader, config, fold_num, curren
 
         avg_val_loss = val_loss / len(val_loader)
         val_acc = 100 * correct / total
-        epoch_accuracies.append(val_acc)
+        val_losses_history.append(avg_val_loss) # NEW: Store val loss
+        val_accuracies_history.append(val_acc) # NEW: Store val accuracy
 
         summary_line = (
             f"Epoch [{epoch + 1}/{config.EPOCHS}] -> Train Loss: {avg_train_loss:.4f} | "
@@ -232,10 +238,45 @@ def train_and_validate(model, train_loader, val_loader, config, fold_num, curren
         model.load_state_dict(best_model_state)
         torch.save(model.state_dict(), model_save_path)
         print(f"Modelo carregado com a melhor acurácia de validação ({best_val_acc:.2f}%) para o Fold {fold_num}.")
-        
 
     print('-' * 20, f"Fold {fold_num} training finished", '-' * 20)
-    return best_val_acc
+    # NEW: Return histories for plotting learning curves
+    return best_val_acc, train_losses_history, val_losses_history, val_accuracies_history
+
+
+# NEW FUNCTION: For plotting learning curves
+def plot_learning_curves(train_losses, val_losses, val_accuracies, config, fold_num, current_timestamp):
+    reports_dir = 'reports'
+    learning_curve_path = os.path.join(reports_dir, 'learning_curves')
+    os.makedirs(learning_curve_path, exist_ok=True)
+
+    plt.figure(figsize=(14, 6))
+
+    # Plot Loss Curves
+    plt.subplot(1, 2, 1)
+    plt.plot(range(1, len(train_losses) + 1), train_losses, label='Train Loss', color='blue')
+    plt.plot(range(1, len(val_losses) + 1), val_losses, label='Validation Loss', color='orange')
+    plt.title(f'Loss Curves (Fold {fold_num} - {config.MODEL_NAME})')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid(True)
+
+    # Plot Validation Accuracy Curve
+    plt.subplot(1, 2, 2)
+    plt.plot(range(1, len(val_accuracies) + 1), val_accuracies, label='Validation Accuracy', color='green')
+    plt.title(f'Validation Accuracy (Fold {fold_num} - {config.MODEL_NAME})')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy (%)')
+    plt.legend()
+    plt.grid(True)
+
+    plt.tight_layout()
+    filename = os.path.join(learning_curve_path, f'{current_timestamp}_{config.MODEL_NAME}_learning_curves_fold_{fold_num}.png')
+    plt.savefig(filename)
+    print(f"Learning curves saved to '{os.path.abspath(filename)}'")
+    send_telegram_message(f"Learning curves saved to '{os.path.abspath(filename)}'")
+    plt.close()
 
 
 def generate_report(model, data_loader, device, model_name, class_names, fold_num, timestamp):
@@ -249,6 +290,8 @@ def generate_report(model, data_loader, device, model_name, class_names, fold_nu
     confusion_report_path = os.path.join(base_reports_dir, 'confusion_matrix')
     roc_curve_path = os.path.join(base_reports_dir, 'roc_curves')
     pr_curve_path = os.path.join(base_reports_dir, 'precision_recall_curves')
+    per_class_metrics_path = os.path.join(base_reports_dir, 'per_class_metrics') # NEW
+    calibration_plots_path = os.path.join(base_reports_dir, 'calibration_plots') # NEW
 
     with torch.no_grad():
         for images, labels in data_loader:
@@ -262,6 +305,10 @@ def generate_report(model, data_loader, device, model_name, class_names, fold_nu
             y_true.extend(labels.cpu().numpy())
             y_pred.extend(predicted.cpu().numpy())
             y_scores.extend(probabilities.cpu().numpy())
+
+    y_true_np = np.array(y_true)
+    y_pred_np = np.array(y_pred)
+    y_scores_np = np.array(y_scores)
 
     # --- Classification Report ---
     report_str = classification_report(y_true, y_pred, target_names=class_names, digits=4)
@@ -296,9 +343,6 @@ def generate_report(model, data_loader, device, model_name, class_names, fold_nu
 
     # --- ROC Curve and AUC --- 
     os.makedirs(roc_curve_path, exist_ok=True)
-
-    y_scores_np = np.array(y_scores)
-    y_true_np = np.array(y_true)
 
     plt.figure(figsize=(10, 8))
     for i, class_name in enumerate(class_names):
@@ -336,6 +380,59 @@ def generate_report(model, data_loader, device, model_name, class_names, fold_nu
     print(f"Precision-Recall curve saved as '{os.path.abspath(pr_path)}'")
     plt.close()
     send_telegram_message(f"Precision-Recall curve saved as '{os.path.abspath(pr_path)}'")
+
+    # NEW PLOT: Per-Class Metrics Bar Chart
+    print(f"\n--- Generating Per-Class Metrics Bar Chart (Fold {fold_num} {model_name}) ---")
+    precision, recall, f1_score, _ = precision_recall_fscore_support(y_true_np, y_pred_np, average=None, labels=np.arange(len(class_names)))
+
+    metrics_df = pd.DataFrame({
+        'Class': class_names,
+        'Precision': precision,
+        'Recall': recall,
+        'F1-Score': f1_score
+    })
+
+    metrics_df_melted = metrics_df.melt(id_vars='Class', var_name='Metric', value_name='Score')
+
+    plt.figure(figsize=(14, 7))
+    sns.barplot(x='Class', y='Score', hue='Metric', data=metrics_df_melted, palette='viridis')
+    plt.title(f'Per-Class Metrics - Fold {fold_num} {model_name}')
+    plt.ylabel('Score')
+    plt.xlabel('Class')
+    plt.ylim(0, 1.05) # Ensure full range visible
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+
+    os.makedirs(per_class_metrics_path, exist_ok=True)
+    metrics_plot_filename = os.path.join(per_class_metrics_path, f'{timestamp}_{model_name}_per_class_metrics_fold_{fold_num}.png')
+    plt.savefig(metrics_plot_filename)
+    print(f"Per-class metrics bar chart saved to '{os.path.abspath(metrics_plot_filename)}'")
+    send_telegram_message(f"Per-class metrics bar chart saved to '{os.path.abspath(metrics_plot_filename)}'")
+    plt.close()
+
+    # NEW PLOT: Calibration Plot (Reliability Diagram)
+    print(f"\n--- Generating Calibration Plot (Fold {fold_num} {model_name}) ---")
+    plt.figure(figsize=(10, 8))
+    plt.plot([0, 1], [0, 1], linestyle='--', label='Perfectly calibrated', color='gray')
+
+    # Plot one curve per class (one-vs-rest)
+    for i, class_name in enumerate(class_names):
+        prob_pos, actual_prob_pos = calibration_curve(y_true_np == i, y_scores_np[:, i], n_bins=10)
+        plt.plot(prob_pos, actual_prob_pos, marker='o', label=f'Class {class_name}')
+
+    plt.title(f'Calibration Plot (Reliability Diagram) - Fold {fold_num} {model_name}')
+    plt.xlabel('Mean Predicted Probability')
+    plt.ylabel('Fraction of Positives')
+    plt.legend(loc='upper left')
+    plt.grid(True)
+
+    os.makedirs(calibration_plots_path, exist_ok=True)
+    calibration_plot_filename = os.path.join(calibration_plots_path, f'{timestamp}_{model_name}_calibration_plot_fold_{fold_num}.png')
+    plt.savefig(calibration_plot_filename)
+    print(f"Calibration plot saved to '{os.path.abspath(calibration_plot_filename)}'")
+    send_telegram_message(f"Calibration plot saved to '{os.path.abspath(calibration_plot_filename)}'")
+    plt.close()
+
 
 def run_cross_validation(config, dataset, num_classes, class_names):
     kf = StratifiedKFold(n_splits=config.N_SPLITS)
@@ -392,9 +489,14 @@ def run_cross_validation(config, dataset, num_classes, class_names):
 
         model = create_model(config.MODEL_NAME, pretrained=True, num_classes=num_classes)
 
-        best_fold_acc = train_and_validate(model, train_loader, val_loader, config, fold_num, current_timestamp)
+        # NEW: Get history of losses and accuracies
+        best_fold_acc, train_losses, val_losses, val_accuracies = train_and_validate(model, train_loader, val_loader, config, fold_num, current_timestamp)
         fold_accuracies.append(best_fold_acc)
         print(f"Best Fold Accuracy [{fold_num}]: {best_fold_acc:.2f}%")
+
+        # NEW: Plot learning curves
+        print(f"\nGenerating learning curves for Fold {fold_num}...")
+        plot_learning_curves(train_losses, val_losses, val_accuracies, config, fold_num, current_timestamp)
 
         print(f"\nGenerating report for Fold {fold_num} validation set...")
         generate_report(model, val_loader, config.DEVICE, config.MODEL_NAME, class_names, fold_num, current_timestamp)
@@ -501,13 +603,13 @@ def main():
     dataset, num_classes, class_names = load_data(config.DATA_PATH)
     print(f"Dataset loaded with {len(dataset)} images and {num_classes} classes.")
     print(f"Class names: {class_names}")
-    
+
     class_counts = Counter(dataset.targets)
     print("\n--- Class Distribution ---")
     for class_idx, count in class_counts.items():
         print(f" Class'{class_names[class_idx]}: {count} images")
     print("--------------------------")
-    
+
     print(f"Using device: {config.DEVICE}")
 
     accuracies = run_cross_validation(config, dataset, num_classes, class_names)
